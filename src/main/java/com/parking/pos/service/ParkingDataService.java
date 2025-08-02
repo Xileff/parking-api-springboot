@@ -37,12 +37,17 @@ public class ParkingDataService {
     }
 
     public ParkingDataResponse getDetail(String plate) {
-        Optional<ParkingData> parkingData = repository.findByVehiclePlateNumberAndCheckOutTimeIsNull(plate);
-        if (parkingData.isEmpty()) {
-            throw new VehicleNotFoundException(plate);
-        }
+        ParkingData activeParkingData = repository.findByVehiclePlateNumberAndCheckOutTimeIsNull(plate)
+                .orElseThrow(() -> new VehicleNotFoundException(plate));
 
-        return convertToResponse(parkingData.get());
+        LocalDateTime now = LocalDateTime.now();
+        long durationInHours = ChronoUnit.HOURS.between(activeParkingData.getCheckInTime(), now);
+        durationInHours = durationInHours == 0 ? 1 : durationInHours;
+
+        activeParkingData.setTotalPrice((int) durationInHours * HOURLY_RATE);
+        repository.save(activeParkingData);
+
+        return convertToResponse(activeParkingData);
     }
     public ParkingDataResponse checkOut(String plate) {
         ParkingData activeParkingData = repository.findByVehiclePlateNumberAndCheckOutTimeIsNull(plate)
